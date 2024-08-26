@@ -10,15 +10,18 @@ module TableSaw
         @name = name
         @partial = partial
         @ids = Set.new
+        @columns = TableSaw.schema_cache.columns_hash(name).filter do |name, col|
+          !col.virtual?
+        end.each_key.to_a
       end
 
       def copy_statement
         if partial
-          format 'select * from %{name} where %{clause}',
+          format "select #{quoted_columns} from %{name} where %{clause}",
                  name:, clause: TableSaw::Queries::SerializeSqlInClause.new(name, primary_key, ids.to_a).call
 
         else
-          "select * from #{name}"
+          "select #{quoted_columns} from #{name}"
         end
       end
 
@@ -29,6 +32,12 @@ module TableSaw
       end
 
       private
+
+      def quoted_columns
+        @columns
+          .map { |name| TableSaw.connection.quote_column_name(name) }
+          .join(', ')
+      end
 
       def fetch_belongs_to(directive)
         TableSaw::DependencyGraph::BelongsToDirectives.new(manifest, directive).call

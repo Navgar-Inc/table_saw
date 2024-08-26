@@ -3,6 +3,13 @@
 module TableSaw
   module Formats
     class Copy < TableSaw::Formats::Base
+      def initialize(table_name, options: {})
+        super
+        @columns = TableSaw.schema_cache.columns_hash(table_name).filter do |name, col|
+          !col.virtual?
+        end.each_key.to_a
+      end
+
       def header
         "COPY #{table_name} (#{quoted_columns}) FROM STDIN;"
       end
@@ -18,8 +25,7 @@ module TableSaw
       private
 
       def quoted_columns
-        TableSaw.schema_cache.columns_hash(table_name)
-          .each_key
+        @columns
           .map { |name| TableSaw.connection.quote_column_name(name) }
           .join(', ')
       end
